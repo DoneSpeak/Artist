@@ -1,0 +1,386 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper PUBLIC
+        "-//mybatis.org//DTD Mapper 3.0//EN"
+        "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<!--这块等于dao接口的实现  namespace必须和接口的类路径一样-->
+<!--
+【参考】
+[Mapper XML 文件](http://www.mybatis.org/mybatis-3/zh/sqlmap-xml.html)
+-->
+<mapper namespace="com.artist.dao.ArticleDao">
+
+    <resultMap id="articleResultMap" type="Article">
+        <id property="id" column="article_id" />
+        <result property="url" column="article_url"/>
+        <result property="title" column="article_title"/>
+        <result property="content" column="article_content"/>
+        <result property="published_time" column="article_published_time"/>
+        <result property="update_time" column="article_update_time"/>
+        <association property="publisher" javaType="Publisher" resultMap="publisherResultMap"/>
+        <association property="category" javaType="Category" resultMap="categoryResultMap"/>
+        <collection property="attaches" ofType="Attach" resultMap="attachResultMap"/>
+    </resultMap>
+
+    <resultMap id="publisherResultMap" type="Publisher">
+        <id property="id" column="publisher_id"/>
+        <result property="name" column="publisher_name"/>
+    </resultMap>
+
+    <resultMap id="categoryResultMap" type="Category">
+        <id property="id" column="category_id"/>
+        <result property="name" column="category_name"/>
+    </resultMap>
+
+    <resultMap id="attachResultMap" type="Attach">
+        <id property="id" column="attach_id"/>
+        <result property="url" column="attach_url"/>
+        <result property="filename" column="attach_filename"/>
+        <result property="content" column="attach_content"/>
+    </resultMap>
+
+    <sql id="selectAllArticle">
+        select
+             A.id as article_id,
+             A.url as article_url,
+             A.title as article_title,
+             A.content as article_content,
+             A.published_time as article_published_time,
+             A.update_time as article_update_time,
+             A.publisher_id as publisher_id,
+             A.category_id as category_id,
+             P.name as publisher_name,
+             C.name as category_name
+        from article A, publisher P, Category C
+        where A.publisher_id = P.id and A.category_id = C.id
+    </sql>
+
+    <sql id="selectAllArticleWithAbstract">
+        select
+            A.id as article_id,
+            A.url as article_url,
+            A.title as article_title,
+            left(A.content,${length}) as article_content,
+            A.published_time as article_published_time,
+            A.update_time as article_update_time,
+            A.publisher_id as publisher_id,
+            A.category_id as category_id,
+            P.name as publisher_name,
+            C.name as category_name
+        from article A, publisher P, Category C
+        where A.publisher_id = P.id and A.category_id = C.id
+    </sql>
+
+    <select id="getOne" parameterType="int" resultMap="articleResultMap">
+        select
+            Arti.*,
+            Att.id as attach_id,
+            Att.url as attach_url,
+            Att.filename as attach_filename,
+            Att.content as attach_content
+        from attach Att
+        right join
+        (
+            <include refid="selectAllArticle"></include>
+            and A.id = #{id}
+        ) as Arti
+        on Att.article_id = Arti.article_id
+    </select>
+
+    <select id="getAll" resultMap="articleResultMap">
+        select
+            Arti.*,
+            Att.id as attach_id,
+            Att.url as attach_url,
+            Att.filename as attach_filename,
+            Att.content as attach_content
+        from attach Att
+        right join
+        (
+            <include refid="selectAllArticle"></include>
+        ) as Arti
+        on Att.article_id = Arti.article_id
+        order BY Arti.article_id ASC
+    </select>
+
+
+    <select id="addAllByCategoryId" parameterType="int" resultMap="articleResultMap">
+        select
+        Arti.*,
+        Att.id as attach_id,
+        Att.url as attach_url,
+        Att.filename as attach_filename,
+        Att.content as attach_content
+        from attach Att
+        right join
+        (
+            <include refid="selectAllArticle"></include>
+            and A.category_id = #{categoryId}
+        ) as Arti
+        on Att.article_id = Arti.article_id
+        order BY Arti.article_id asc
+    </select>
+
+<!--
+由于attaches是有很多的，所以如果使用普通子查询会出现重复的article，导致limit k 无法正确的选出k条
+且由于部分article是没有attach的，这些将回不被匹配到，因此需要使用right join，右外连接
+-->
+    <select id="getTopK" parameterType="int" resultMap="articleResultMap">
+        select
+            Arti.*,
+            Att.id as attach_id,
+            Att.url as attach_url,
+            Att.filename as attach_filename,
+            Att.content as attach_content
+        from attach Att
+        right join
+        (
+            <include refid="selectAllArticle"></include>
+            order BY A.update_time desc
+            limit 0,#{k}
+        ) as Arti
+        on Att.article_id = Arti.article_id
+        order BY Arti.article_update_time desc
+    </select>
+
+    <!-- 文章内容截取开始的140个字符 -->
+    <select id="getAllWithAbstract" resultMap="articleResultMap">
+        select
+            Arti.*,
+            Att.id as attach_id,
+            Att.url as attach_url,
+            Att.filename as attach_filename,
+            left(Att.content,140) as attach_content
+        from attach Att
+        right join
+        (
+            <include refid="selectAllArticleWithAbstract">
+                <property name="length" value="140"/>
+            </include>
+        ) as Arti
+        on Att.article_id = Arti.article_id
+        order BY Arti.article_update_time desc
+    </select>
+
+    <select id="getTopKWithAbstract"  parameterType="int" resultMap="articleResultMap">
+        select
+            Arti.*,
+            Att.id as attach_id,
+            Att.url as attach_url,
+            Att.filename as attach_filename,
+            left(Att.content,140) as attach_content
+            from attach Att
+        right join
+        (
+            <include refid="selectAllArticleWithAbstract">
+                <property name="length" value="140"/>
+            </include>
+            order BY A.update_time desc
+            limit 0,#{k}
+        ) as Arti
+        on Att.article_id = Arti.article_id
+        order BY Arti.article_update_time desc
+    </select>
+
+    <select id="getTopKWithAbstractLength"  resultMap="articleResultMap">
+        select
+            Arti.*,
+            Att.id as attach_id,
+            Att.url as attach_url,
+            Att.filename as attach_filename,
+            left(Att.content,#{length}) as attach_content
+        from attach Att
+        right join
+        (
+        <include refid="selectAllArticleWithAbstract">
+            <property name="length" value="#{length}"/>
+        </include>
+        order BY A.update_time desc
+        limit 0,#{k}
+        ) as Arti
+        on Att.article_id = Arti.article_id
+        order BY Arti.article_update_time desc
+    </select>
+
+    <select id="getAllWithAbstractMatched" resultMap="articleResultMap">
+        select
+        Arti.*,
+        Att.id as attach_id,
+        Att.url as attach_url,
+        Att.filename as attach_filename,
+        <choose>
+            <when test="isForArticleNotAttach">
+                "" as attach_content
+            </when>
+            <otherwise>
+                left(Att.content,140) as attach_content
+            </otherwise>
+        </choose>
+        from attach Att
+        <choose>
+            <when test="isForArticleNotAttach">
+                right join
+            </when>
+            <otherwise>
+                inner JOIN
+            </otherwise>
+        </choose>
+        (
+        <include refid="selectAllArticleWithAbstract">
+            <property name="length" value="140"/>
+        </include>
+
+        <if test="category != null &amp;&amp; category >= 0">
+            and A.category_id = #{category}
+        </if>
+        <if test="publisher != null &amp;&amp; publisher >= 0">
+            and A.publisher_id = #{publisher}
+        </if>
+        <if test="duration != null &amp;&amp; duration >= 0">
+            <![CDATA[
+             and (
+             DATEDIFF(now(), A.published_time) <= #{duration}
+             or ( A.update_time != null && DATEDIFF(now(), A.update_time) <= #{duration})
+             )
+            ]]>
+        </if>
+        ) as Arti
+        on Att.article_id = Arti.article_id
+        order BY Arti.article_update_time desc
+    </select>
+
+    <!--
+    【参考】
+    [mybatis多参数传递(其中包括数组)](https://my.oschina.net/ydsakyclguozi/blog/152621)
+    [Dynamic SQL](http://www.mybatis.org/mybatis-3/dynamic-sql.html)
+    [mybatis sql语句配置大于号小于号的处理](http://blog.csdn.net/fengyifei11228/article/details/8936534)
+    [异常-Error querying database. Cause: java.lang.NumberFormatException: For input string:"xxx"](http://blog.csdn.net/qfzhangwei/article/details/53764173)
+    -->
+    <!--public ArrayList<ArticgetAllWithAbstracttAll(@Param("category") int category, @Param("publisher") int publisher, @Param("duration") int duration, @Param("docIds") int[] docIds) throws Exception;-->
+    <select id="getAllWithAbstractInIds" resultMap="articleResultMap">
+        select
+            Arti.*,
+            Att.id as attach_id,
+            Att.url as attach_url,
+            Att.filename as attach_filename,
+            "" as attach_content
+        from attach Att
+        right join
+        (
+        <include refid="selectAllArticleWithAbstract">
+            <property name="length" value="140"/>
+        </include>
+
+        <if test="category != null &amp;&amp; category >= 0">
+          and A.category_id = #{category}
+        </if>
+        <if test="publisher != null &amp;&amp; publisher >= 0">
+          and A.publisher_id = #{publisher}
+        </if>
+        <if test="duration != null &amp;&amp; duration >= 0">
+            <![CDATA[
+             and (
+             DATEDIFF(now(), A.published_time) <= #{duration}
+             or ( A.update_time != null && DATEDIFF(now(), A.update_time) <= #{duration})
+             )
+            ]]>
+        </if>
+        and A.id IN
+        <foreach collection="docIds" item="item" index="index" open="(" separator="," close=")">
+            #{item}
+        </foreach>
+        ) as Arti
+        on Att.article_id = Arti.article_id
+    </select>
+
+    <!--<select id="getAllWithAbstractForAttachIds" resultMap="articleResultMap">-->
+        <!--select-->
+            <!--Arti.*,-->
+            <!--Att.id as attach_id,-->
+            <!--Att.url as attach_url,-->
+            <!--Att.filename as attach_filename,-->
+            <!--left(Att.content,140) as attach_content-->
+        <!--from attach Att-->
+        <!--inner join-->
+        <!--(-->
+            <!--<include refid="selectAllArticleWithAbstract">-->
+                <!--<property name="length" value="0"/>-->
+            <!--</include>-->
+
+            <!--<if test="category != null &amp;&amp; category >= 0">-->
+                <!--and A.category_id = #{category}-->
+            <!--</if>-->
+            <!--<if test="publisher != null &amp;&amp; publisher >= 0">-->
+                <!--and A.publisher_id = #{publisher}-->
+            <!--</if>-->
+            <!--<if test="duration != null &amp;&amp; duration >= 0">-->
+                <!--<![CDATA[-->
+                 <!--and (-->
+                 <!--DATEDIFF(now(), A.published_time) <= #{duration}-->
+                 <!--or ( A.update_time != null && DATEDIFF(now(), A.update_time) <= #{duration})-->
+                 <!--)-->
+                <!--]]>-->
+            <!--</if>-->
+        <!--) as Arti-->
+        <!--on (Att.article_id = Arti.article_id and Att.id IN-->
+        <!--<foreach collection="docIds" item="item" index="index" open="(" separator="," close=")">-->
+            <!--#{item}-->
+        <!--</foreach>-->
+        <!--)-->
+    <!--</select>-->
+
+    <select id="getAllWithAbstractForAttachIds" resultMap="articleResultMap">
+        select
+            A.id as article_id,
+            A.url as article_url,
+            A.title as article_title,
+            "" as article_content,
+            A.published_time as article_published_time,
+            A.update_time as article_update_time,
+            A.publisher_id as publisher_id,
+            A.category_id as category_id,
+            P.name as publisher_name,
+            C.name as category_name,
+            Att.id as attach_id,
+            Att.url as attach_url,
+            Att.filename as attach_filename,
+            left(Att.content,140) as attach_content
+        from attach Att,article A, publisher P, Category C
+        where A.publisher_id = P.id and A.category_id = C.id and A.id = Att.article_id
+        <if test="category != null &amp;&amp; category >= 0">
+        and A.category_id = #{category}
+        </if>
+        <if test="publisher != null &amp;&amp; publisher >= 0">
+            and A.publisher_id = #{publisher}
+        </if>
+        <if test="duration != null &amp;&amp; duration >= 0">
+            <![CDATA[
+             and (
+             DATEDIFF(now(), A.published_time) <= #{duration}
+             or ( A.update_time != null && DATEDIFF(now(), A.update_time) <= #{duration})
+             )
+            ]]>
+        </if>
+        and Att.id IN
+        <foreach collection="docIds" item="item" index="index" open="(" separator="," close=")">
+            #{item}
+        </foreach>
+    </select>
+
+    <insert id="addOne">
+        insert
+          into article(id,url,title,content,publisher_id,category_id,published_time,update_time)
+          values(
+              #{article.id},#{article.url},#{article.title},#{article.content},
+              #{publisherId},#{categoryId},
+              #{article.published_time},#{article.update_time})
+    </insert>
+
+    <insert id="addRawOne" parameterType="Article" useGeneratedKeys="true" keyProperty="id" >
+      insert
+          into article(url,title,content,publisher_id,category_id,published_time,update_time)
+          values(
+              #{url},#{title},#{content},
+              #{publisher.id},#{category.id},
+              #{published_time},#{update_time})
+    </insert>
+</mapper>

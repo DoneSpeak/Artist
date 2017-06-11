@@ -1,0 +1,25 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper PUBLIC
+        "-//mybatis.org//DTD Mapper 3.0//EN"
+        "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<!--这块等于dao接口的实现  namespace必须和接口的类路径一样-->
+<mapper namespace="com.artist.dao.CategoryDao">
+
+    <!-- Publisher 为在mybatisConfig中设置的别名，如果不用别名，则需要写成带完整路径的方式：com.artist.model.Publisher-->
+    <select id="getOne" parameterType="int" resultType="Category">
+        select * from category where id=#{id}
+    </select>
+
+    <select id="getAll" parameterType="int" resultType="Category">
+        select * from category order by id
+    </select>
+
+    <select id="getByName" parameterType="String" resultType="Category">
+        select * from category where name=#{name} order by id
+    </select>
+
+    <select id="getIdByName" parameterType="String" resultType="int">
+        select id from category where name=#{name}
+    </select>
+
+</mapper>

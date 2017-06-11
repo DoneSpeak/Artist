@@ -1,0 +1,6 @@
+删除重复文章中的附件
+# delete from attach where article_id in(select A2.id from article A1, article A2 where A1.url = A2.url and A1.id < A2.id);
+删除重复文章
+# delete from article where id in(select B.id as id from (select A2.id as id from article A1, article A2 where A1.url = A2.url and A1.id < A2.id) as B);
+选中重复文章
+# select A2.id from article A1, article A2 where A1.url = A2.url and A1.id < A2.id;

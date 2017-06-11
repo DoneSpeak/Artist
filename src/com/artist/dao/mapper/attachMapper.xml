@@ -1,0 +1,30 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper PUBLIC
+        "-//mybatis.org//DTD Mapper 3.0//EN"
+        "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<!--这块等于dao接口的实现  namespace必须和接口的类路径一样-->
+<mapper namespace="com.artist.dao.AttachDao">
+
+    <insert id="addOne" parameterType="Attach" useGeneratedKeys="true" keyProperty="id">
+        INSERT  into attach(url,filename,article_id,content) values(#{url},#{filename},#{article_id},#{content})
+    </insert>
+
+    <!-->
+     批量插入
+    【参考】
+    [MyBatis批量插入数据(MySql)](http://www.cnblogs.com/admol/articles/4248159.html)
+    [ 数据库-MyBatis的(insert,update,delete)三种批量操作](http://blog.csdn.net/starywx/article/details/23268465)
+    <-->
+    <insert id ="addSome" parameterType="java.util.List" >
+        <selectKey resultType ="java.lang.Integer" keyProperty= "id"
+                   order= "AFTER">
+            SELECT LAST_INSERT_ID()
+        </selectKey >
+        insert into attach
+        (url,filename,article_id,content)
+        values
+        <foreach collection ="list" item="reddemCode" index= "index" separator =",">
+            (#{url},#{filename},#{article_id},#{content})
+        </foreach >
+    </insert>
+</mapper>
